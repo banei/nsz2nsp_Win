@@ -8,6 +8,8 @@ from nsz_converter.core.converter import ConversionStatus
 from nsz_converter.core.nsz_runner import NszRunner, find_nsz_binary
 from nsz_converter.core.keyset import resolve_keyset
 
+from nsz_converter.i18n import t
+
 from .task import Task, TaskStatus
 
 
@@ -63,9 +65,9 @@ class QueueWorker:
                 new_tasks.append(task)
                 self._emit(task)
         if new_tasks:
-            self._log(f"已添加 {len(new_tasks)} 个文件到队列")
+            self._log(t("added_files", count=len(new_tasks)))
         elif paths:
-            self._log("未找到 .nsz 文件")
+            self._log(t("no_nsz_found"))
         return new_tasks
 
     def retry_task(self, task_id: str) -> None:
@@ -77,7 +79,7 @@ class QueueWorker:
                     task.error = ""
                     task.retries += 1
                     self._emit(task)
-                    self._log(f"重试: {task.file_name}")
+                    self._log(t("retry_task", name=task.file_name))
                     break
         self._ensure_worker()
 
@@ -92,7 +94,7 @@ class QueueWorker:
                 ]
             else:
                 self._tasks = [task for task in self._tasks if task.status == TaskStatus.RUNNING]
-        self._log("队列已清空" if not completed_only else "已完成项已清除")
+        self._log(t("queue_cleared") if not completed_only else t("completed_cleared"))
 
     def start(self) -> None:
         self._pause_event.set()
@@ -100,18 +102,18 @@ class QueueWorker:
 
     def pause(self) -> None:
         self._pause_event.clear()
-        self._log("已暂停（当前文件完成后停止）")
+        self._log(t("paused"))
 
     def resume(self) -> None:
         self._pause_event.set()
         self._ensure_worker()
-        self._log("已继续")
+        self._log(t("resumed"))
 
     def cancel_current(self) -> None:
         self._cancel_current = True
         if self._current_runner:
             self._current_runner.cancel()
-        self._log("正在取消当前转换…")
+        self._log(t("cancelling"))
 
     def _ensure_worker(self) -> None:
         if self._worker_thread and self._worker_thread.is_alive():
@@ -147,9 +149,9 @@ class QueueWorker:
 
     def _process_task(self, task: Task) -> None:
         task.status = TaskStatus.RUNNING
-        task.progress = "准备中…"
+        task.progress = t("preparing")
         self._emit(task)
-        self._log(f"开始转换: {task.file_name}")
+        self._log(t("start_converting", name=task.file_name))
 
         nsz_bin = find_nsz_binary()
         keyset = resolve_keyset(

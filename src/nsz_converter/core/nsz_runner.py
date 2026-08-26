@@ -123,7 +123,9 @@ class NszRunner:
                 rc = self._process.wait()
         except (FileNotFoundError, OSError) as exc:
             stop_timer.set()
-            raise RuntimeError(f"无法启动 nsz: {exc}") from exc
+            from nsz_converter.i18n import t
+
+            raise RuntimeError(t("err_nsz_start", error=exc)) from exc
         finally:
             stop_timer.set()
             self._process = None

@@ -35,6 +35,7 @@ class AppSettings:
     keyset_path: str = ""
     window_geometry: str = "960x720"
     show_native_progress: bool = False
+    language: str = ""
     max_history: int = 50
     history: list[HistoryEntry] = field(default_factory=list)
 
@@ -76,6 +77,7 @@ def load_settings() -> AppSettings:
         keyset_path=raw.get("keyset_path", ""),
         window_geometry=raw.get("window_geometry", "960x720"),
         show_native_progress=bool(raw.get("show_native_progress", False)),
+        language=str(raw.get("language", "")),
         max_history=int(raw.get("max_history", 50)),
         history=history,
     )
@@ -86,6 +88,7 @@ def save_settings(settings: AppSettings) -> None:
         "keyset_path": settings.keyset_path,
         "window_geometry": settings.window_geometry,
         "show_native_progress": settings.show_native_progress,
+        "language": settings.language,
         "max_history": settings.max_history,
         "history": [asdict(item) for item in settings.history],
     }

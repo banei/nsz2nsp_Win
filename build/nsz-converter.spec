@@ -33,6 +33,8 @@ a = Analysis(
         "nsz_converter.queue.worker",
         "nsz_converter.queue.task",
         "nsz_converter.config.settings",
+        "nsz_converter.i18n",
+        "nsz_converter.i18n.catalog",
         *ctk_hidden,
         *dnd_hidden,
     ],

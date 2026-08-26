@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Callable, Optional
 
+from nsz_converter.i18n import t
+
 from .keyset import KeysetInfo, resolve_keyset
 from .nsz_runner import NszRunner, find_nsz_binary, is_nsz_available
 
@@ -84,6 +86,8 @@ def convert_file(
     on_progress: Optional[ProgressCallback] = None,
     runner: Optional[NszRunner] = None,
 ) -> ConversionResult:
+    from nsz_converter.i18n import t
+
     nsz_path = os.path.abspath(nsz_path)
     nsp_path = os.path.splitext(nsz_path)[0] + ".nsp"
     base_dir = os.path.dirname(nsz_path)
@@ -91,7 +95,7 @@ def convert_file(
     if not is_nsz_available():
         return ConversionResult(
             status=ConversionStatus.FAILED,
-            message="未检测到 nsz，请执行: pip install nsz",
+            message=t("err_nsz_missing"),
             nsz_path=nsz_path,
             nsp_path=nsp_path,
         )
@@ -100,7 +104,7 @@ def convert_file(
     if not keyset:
         return ConversionResult(
             status=ConversionStatus.FAILED,
-            message="未找到密钥文件，请在设置中配置或放置 prod.keys",
+            message=t("err_keyset_missing"),
             nsz_path=nsz_path,
             nsp_path=nsp_path,
         )
@@ -109,7 +113,7 @@ def convert_file(
         stash = move_to_stash(nsz_path, base_dir)
         return ConversionResult(
             status=ConversionStatus.SKIPPED,
-            message=f"已存在 NSP，源文件已移至: {stash}",
+            message=t("msg_nsp_exists", stash=stash),
             nsz_path=nsz_path,
             nsp_path=nsp_path,
         )
@@ -118,7 +122,7 @@ def convert_file(
     if not nsz_bin:
         return ConversionResult(
             status=ConversionStatus.FAILED,
-            message="未找到可用的 nsz 可执行文件",
+            message=t("err_nsz_bin"),
             nsz_path=nsz_path,
             nsp_path=nsp_path,
         )
@@ -142,7 +146,7 @@ def convert_file(
     if active_runner.cancelled:
         return ConversionResult(
             status=ConversionStatus.CANCELLED,
-            message="转换已取消",
+            message=t("msg_cancelled"),
             duration=duration,
             nsz_path=nsz_path,
             nsp_path=nsp_path,
@@ -151,7 +155,7 @@ def convert_file(
     if rc != 0:
         return ConversionResult(
             status=ConversionStatus.FAILED,
-            message=f"nsz 返回错误码 {rc}",
+            message=t("err_nsz_rc", code=rc),
             duration=duration,
             nsz_path=nsz_path,
             nsp_path=nsp_path,
@@ -160,7 +164,7 @@ def convert_file(
     if not os.path.exists(nsp_path):
         return ConversionResult(
             status=ConversionStatus.FAILED,
-            message="转换结束但未生成 NSP 文件",
+            message=t("err_no_nsp_output"),
             duration=duration,
             nsz_path=nsz_path,
             nsp_path=nsp_path,
@@ -169,7 +173,7 @@ def convert_file(
     stash = move_to_stash(nsz_path, base_dir)
     return ConversionResult(
         status=ConversionStatus.COMPLETED,
-        message=f"转换完成，源文件已移至: {stash}",
+        message=t("msg_completed", stash=stash),
         duration=duration,
         nsz_path=nsz_path,
         nsp_path=nsp_path,

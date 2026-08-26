@@ -15,14 +15,10 @@ class TaskStatus(Enum):
     CANCELLED = "cancelled"
 
 
-STATUS_LABELS = {
-    TaskStatus.PENDING: "等待",
-    TaskStatus.RUNNING: "转换中",
-    TaskStatus.COMPLETED: "完成",
-    TaskStatus.FAILED: "失败",
-    TaskStatus.SKIPPED: "跳过",
-    TaskStatus.CANCELLED: "已取消",
-}
+def status_label_for(task_status: TaskStatus) -> str:
+    from nsz_converter.i18n import status_label
+
+    return status_label(task_status.value)
 
 
 @dataclass

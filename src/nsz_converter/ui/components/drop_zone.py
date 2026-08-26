@@ -6,7 +6,8 @@ from typing import Callable
 import customtkinter as ctk
 from tkinterdnd2 import DND_FILES
 
-from nsz_converter.ui.theme import Palette
+from nsz_converter.i18n import t
+from nsz_converter.ui.theme import Palette, create_button, label_font
 
 
 class DropZone(ctk.CTkFrame):
@@ -21,11 +22,12 @@ class DropZone(ctk.CTkFrame):
         kwargs.setdefault("border_color", Palette.BORDER)
         super().__init__(master, **kwargs)
         self._on_paths = on_paths
+        self._dnd_available = True
 
         self.label = ctk.CTkLabel(
             self,
-            text="拖拽 .nsz 文件或文件夹到此处",
-            font=ctk.CTkFont(size=15),
+            text=t("drop_hint"),
+            font=label_font(14),
             text_color=Palette.TEXT_MUTED,
         )
         self.label.pack(expand=True, pady=(24, 8))
@@ -33,29 +35,19 @@ class DropZone(ctk.CTkFrame):
         button_row = ctk.CTkFrame(self, fg_color="transparent")
         button_row.pack(pady=(0, 24))
 
-        self.folder_btn = ctk.CTkButton(
-            button_row,
-            text="选择文件夹",
-            command=self._pick_folder,
-            width=120,
-            fg_color=Palette.BTN_SECONDARY,
-            hover_color=Palette.BTN_SECONDARY_HOVER,
-            text_color=Palette.BTN_SECONDARY_TEXT,
-        )
+        self.folder_btn = create_button(button_row, t("pick_folder"), self._pick_folder)
         self.folder_btn.pack(side="left", padx=8)
 
-        self.file_btn = ctk.CTkButton(
-            button_row,
-            text="选择文件",
-            command=self._pick_files,
-            width=120,
-            fg_color=Palette.BTN_SECONDARY,
-            hover_color=Palette.BTN_SECONDARY_HOVER,
-            text_color=Palette.BTN_SECONDARY_TEXT,
-        )
+        self.file_btn = create_button(button_row, t("pick_files"), self._pick_files)
         self.file_btn.pack(side="left", padx=8)
 
         self._register_dnd()
+
+    def refresh_text(self) -> None:
+        hint = t("drop_unavailable") if not self._dnd_available else t("drop_hint")
+        self.label.configure(text=hint)
+        self.folder_btn.configure(text=t("pick_folder"))
+        self.file_btn.configure(text=t("pick_files"))
 
     def _register_dnd(self) -> None:
         try:
@@ -64,7 +56,8 @@ class DropZone(ctk.CTkFrame):
             self.label.drop_target_register(DND_FILES)
             self.label.dnd_bind("<<Drop>>", self._on_drop)
         except Exception:
-            self.label.configure(text="拖拽不可用，请使用下方按钮选择文件")
+            self._dnd_available = False
+            self.label.configure(text=t("drop_unavailable"))
 
     def _on_drop(self, event) -> None:
         paths = self._parse_drop(event.data)
@@ -96,13 +89,13 @@ class DropZone(ctk.CTkFrame):
         return items
 
     def _pick_folder(self) -> None:
-        path = filedialog.askdirectory(title="选择包含 NSZ 的文件夹")
+        path = filedialog.askdirectory(title=t("dlg_pick_folder"))
         if path:
             self._on_paths([path])
 
     def _pick_files(self) -> None:
         paths = filedialog.askopenfilenames(
-            title="选择 NSZ 文件",
+            title=t("dlg_pick_files"),
             filetypes=[("NSZ files", "*.nsz"), ("All files", "*.*")],
         )
         if paths:

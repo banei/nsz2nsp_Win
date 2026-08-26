@@ -4,8 +4,25 @@ from typing import Callable
 
 import customtkinter as ctk
 
-from nsz_converter.queue.task import STATUS_LABELS, Task, TaskStatus
-from nsz_converter.ui.theme import Palette, pick
+from nsz_converter.i18n import t
+from nsz_converter.queue.task import Task, TaskStatus, status_label_for
+from nsz_converter.ui.theme import (
+    COL_ACTION,
+    COL_DURATION,
+    COL_FILENAME,
+    COL_PROGRESS,
+    COL_STATUS,
+    FONT_SIZE,
+    LABEL_HEIGHT,
+    FixedCTkLabel,
+    Palette,
+    ROW_HEIGHT,
+    create_button,
+    create_fixed_label,
+    label_font,
+    pick,
+    update_fixed_label,
+)
 
 
 class QueuePanel(ctk.CTkFrame):
@@ -19,43 +36,70 @@ class QueuePanel(ctk.CTkFrame):
         self._on_retry = on_retry
         self._rows: dict[str, ctk.CTkFrame] = {}
         self._task_map: dict[str, Task] = {}
+        self._col_headers: list[ctk.CTkLabel] = []
 
         header = ctk.CTkFrame(self, fg_color="transparent")
         header.pack(fill="x", padx=8, pady=(8, 4))
 
-        ctk.CTkLabel(
+        self.title_label = ctk.CTkLabel(
             header,
-            text="转换队列",
-            font=ctk.CTkFont(size=14, weight="bold"),
+            text=t("queue_title"),
+            font=label_font(14, bold=True),
             text_color=Palette.TEXT,
-        ).pack(side="left")
-        self.count_label = ctk.CTkLabel(header, text="0 项", text_color=Palette.TEXT_MUTED)
+        )
+        self.title_label.pack(side="left")
+        self.count_label = ctk.CTkLabel(
+            header,
+            text=t("queue_count", count=0),
+            text_color=Palette.TEXT_MUTED,
+            font=label_font(FONT_SIZE),
+        )
         self.count_label.pack(side="right")
 
         self.scroll = ctk.CTkScrollableFrame(self, height=220, fg_color=Palette.SURFACE_ALT)
         self.scroll.pack(fill="both", expand=True, padx=8, pady=8)
 
-        col_header = ctk.CTkFrame(self.scroll, fg_color="transparent")
-        col_header.pack(fill="x", pady=(0, 4))
-        for text, width in (("状态", 70), ("文件名", 220), ("进度", 260), ("用时", 70), ("", 60)):
-            ctk.CTkLabel(
-                col_header,
-                text=text,
+        self.col_header = ctk.CTkFrame(self.scroll, fg_color="transparent")
+        self.col_header.pack(fill="x", pady=(0, 4))
+        for key, width in (
+            ("col_status", COL_STATUS),
+            ("col_filename", COL_FILENAME),
+            ("col_progress", COL_PROGRESS),
+            ("col_duration", COL_DURATION),
+            (None, COL_ACTION),
+        ):
+            label = FixedCTkLabel(
+                self.col_header,
+                text=t(key) if key else "",
                 width=width,
+                height=LABEL_HEIGHT,
                 anchor="w",
                 text_color=Palette.TEXT_MUTED,
-                font=ctk.CTkFont(size=12),
-            ).pack(side="left", padx=2)
+                font=label_font(FONT_SIZE),
+                fg_color="transparent",
+            )
+            label.pack(side="left", padx=2)
+            if key:
+                self._col_headers.append(label)
 
         self.empty_label = ctk.CTkLabel(
             self.scroll,
-            text="队列为空，请添加文件",
+            text=t("queue_empty"),
             text_color=Palette.TEXT_MUTED,
+            font=label_font(FONT_SIZE),
         )
         self.empty_label.pack(pady=24)
 
+    def refresh_text(self) -> None:
+        self.title_label.configure(text=t("queue_title"))
+        self.empty_label.configure(text=t("queue_empty"))
+        keys = ("col_status", "col_filename", "col_progress", "col_duration")
+        for label, key in zip(self._col_headers, keys):
+            label.configure(text=t(key))
+        self.sync_tasks(list(self._task_map.values()))
+
     def sync_tasks(self, tasks: list[Task]) -> None:
-        self.count_label.configure(text=f"{len(tasks)} 项")
+        self.count_label.configure(text=t("queue_count", count=len(tasks)))
         if not tasks:
             if not self.empty_label.winfo_ismapped():
                 self.empty_label.pack(pady=24)
@@ -98,64 +142,66 @@ class QueuePanel(ctk.CTkFrame):
         return pick(Palette.STATUS_WAIT)
 
     def _create_row(self, task: Task) -> None:
-        row = ctk.CTkFrame(self.scroll, fg_color=self._row_color(task), corner_radius=6)
+        row = ctk.CTkFrame(
+            self.scroll,
+            fg_color=self._row_color(task),
+            corner_radius=6,
+            height=ROW_HEIGHT,
+        )
         row.pack(fill="x", pady=2)
+        row.pack_propagate(False)
 
-        status_label = ctk.CTkLabel(
-            row,
-            text=self._status_text(task),
-            width=70,
-            anchor="w",
+        inner = ctk.CTkFrame(row, fg_color="transparent", height=ROW_HEIGHT)
+        inner.pack(fill="both", expand=True, padx=2, pady=2)
+        inner.pack_propagate(False)
+
+        status_label = create_fixed_label(
+            inner,
+            self._status_text(task),
+            COL_STATUS,
+            size=FONT_SIZE,
             text_color=self._status_color(task),
         )
-        status_label.pack(side="left", padx=4)
+        status_label.pack(side="left", padx=2)
 
-        name_label = ctk.CTkLabel(
-            row,
-            text=task.file_name,
-            width=220,
-            anchor="w",
-            text_color=Palette.TEXT,
-        )
-        name_label.pack(side="left", padx=4)
+        name_label = create_fixed_label(inner, task.file_name, COL_FILENAME, size=FONT_SIZE)
+        name_label.pack(side="left", padx=2)
 
-        progress_label = ctk.CTkLabel(
-            row,
-            text=self._progress_text(task),
-            width=260,
-            anchor="w",
+        progress_label = create_fixed_label(
+            inner,
+            self._progress_text(task),
+            COL_PROGRESS,
+            size=FONT_SIZE,
             text_color=Palette.TEXT_MUTED,
         )
-        progress_label.pack(side="left", padx=4)
+        progress_label.pack(side="left", padx=2)
 
-        duration_label = ctk.CTkLabel(
-            row,
-            text=self._duration_text(task),
-            width=70,
-            anchor="w",
+        duration_label = create_fixed_label(
+            inner,
+            self._duration_text(task),
+            COL_DURATION,
+            size=FONT_SIZE,
             text_color=Palette.TEXT_MUTED,
         )
-        duration_label.pack(side="left", padx=4)
+        duration_label.pack(side="left", padx=2)
 
-        action_frame = ctk.CTkFrame(row, fg_color="transparent", width=60)
-        action_frame.pack(side="left", padx=4)
-        retry_btn = ctk.CTkButton(
+        action_frame = ctk.CTkFrame(inner, fg_color="transparent", width=COL_ACTION, height=LABEL_HEIGHT)
+        action_frame.pack(side="left", padx=2)
+        action_frame.pack_propagate(False)
+        retry_btn = create_button(
             action_frame,
-            text="重试",
-            width=50,
-            height=24,
-            command=lambda tid=task.id: self._on_retry(tid),
-            fg_color=Palette.BTN_SECONDARY,
-            hover_color=Palette.BTN_SECONDARY_HOVER,
-            text_color=Palette.BTN_SECONDARY_TEXT,
+            t("retry"),
+            lambda tid=task.id: self._on_retry(tid),
+            compact=True,
         )
         if task.status in (TaskStatus.FAILED, TaskStatus.CANCELLED):
-            retry_btn.pack()
+            retry_btn.place(relx=0.5, rely=0.5, anchor="center")
         else:
-            retry_btn.pack_forget()
+            retry_btn.place_forget()
 
         row._widgets = {
             "status": status_label,
+            "name": name_label,
             "progress": progress_label,
             "duration": duration_label,
             "retry": retry_btn,
@@ -169,15 +215,27 @@ class QueuePanel(ctk.CTkFrame):
             return
         row.configure(fg_color=self._row_color(task))
         widgets = row._widgets
-        widgets["status"].configure(text=self._status_text(task), text_color=self._status_color(task))
-        widgets["progress"].configure(text=self._progress_text(task))
-        widgets["duration"].configure(text=self._duration_text(task))
+        update_fixed_label(
+            widgets["status"],
+            self._status_text(task),
+            COL_STATUS,
+            size=FONT_SIZE,
+        )
+        widgets["status"].configure(text_color=self._status_color(task))
+        update_fixed_label(widgets["name"], task.file_name, COL_FILENAME, size=FONT_SIZE)
+        update_fixed_label(
+            widgets["progress"],
+            self._progress_text(task),
+            COL_PROGRESS,
+            size=FONT_SIZE,
+        )
+        update_fixed_label(widgets["duration"], self._duration_text(task), COL_DURATION, size=FONT_SIZE)
         retry_btn = widgets["retry"]
+        retry_btn.configure(text=t("retry"))
         if task.status in (TaskStatus.FAILED, TaskStatus.CANCELLED):
-            if not retry_btn.winfo_ismapped():
-                retry_btn.pack()
-        elif retry_btn.winfo_ismapped():
-            retry_btn.pack_forget()
+            retry_btn.place(relx=0.5, rely=0.5, anchor="center")
+        else:
+            retry_btn.place_forget()
 
     @staticmethod
     def _status_text(task: Task) -> str:
@@ -189,7 +247,7 @@ class QueuePanel(ctk.CTkFrame):
             TaskStatus.SKIPPED: "−",
             TaskStatus.CANCELLED: "⊘",
         }
-        return f"{icons.get(task.status, '?')} {STATUS_LABELS.get(task.status, task.status.value)}"
+        return f"{icons.get(task.status, '?')} {status_label_for(task.status)}"
 
     @staticmethod
     def _progress_text(task: Task) -> str:

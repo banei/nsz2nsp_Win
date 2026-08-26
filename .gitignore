@@ -1,0 +1,16 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/*
+!build/*.spec
+.eggs/
+*.spec.bak
+.env
+.switch/
+nsz_sources/
+*.log
+.pytest_cache/
+.mypy_cache/
+.vscode/
+.idea/
